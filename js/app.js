@@ -1296,11 +1296,36 @@ function buildDeepReadingPrompts(paperPdfUrl) {
 八、核心总结 (Conclusion)
 用一段完整、凝练、可记忆的话总结：问题、重要性、关键方法、关键结果、价值、边界与可借鉴之处。`;
 
+  // Kimi 预填走 URL，过长会被服务器直接断开；链接只用精简版
+  const kimiSystemShort = `你是资深学术审稿人与论文精读助手。先全局后细节，抓主线，主动分析不摘抄，解释贴近原文术语/模块/公式。用 Markdown，不要第一人称。`;
+
+  const kimiPrefillShort = `请深度阅读论文 PDF：${paperPdfUrl}
+
+输出结构化阅读笔记，覆盖：
+1. 基本信息（标题/作者机构/venue与影响力/年份/类型/摘要提炼）
+2. 整体概括（背景动机、问题定义、核心贡献）
+3. 方法细节（总体思路、模块与架构、关键机制、流程、关键公式与符号、直觉解释）
+4. 实验结果与分析（设置、主结果、细粒度分析、原因、证据力度、启发）
+5. 图表解读（首次引用时说明对象、关系与价值）
+6. 局限性与研究边界
+7. 可延展点与未来方向
+8. 一段式核心总结
+
+目标：判断是否值得精读；理解问题/方法/实验；提炼可复用点；指出局限与后续机会。`;
+
   return {
     systemPrompt,
     prefillPrompt,
-    combinedPrompt: `${systemPrompt}\n\n---\n\n${prefillPrompt}`
+    combinedPrompt: `${systemPrompt}\n\n---\n\n${prefillPrompt}`,
+    kimiSystemShort,
+    kimiPrefillShort
   };
+}
+
+function buildKimiPrefillUrl(systemPrompt, prefillPrompt) {
+  return `https://www.kimi.com/_prefill_chat?prefill_prompt=${encodeURIComponent(prefillPrompt)}` +
+    `&system_prompt=${encodeURIComponent(systemPrompt)}` +
+    `&send_immediately=true&force_search=true`;
 }
 
 async function copyTextToClipboard(text) {
@@ -1475,10 +1500,18 @@ function showPaperDetails(paper, paperIndex) {
   const paperPdfUrl = paper.url.replace('abs', 'pdf');
   const deepReadingPrompts = buildDeepReadingPrompts(paperPdfUrl);
 
-  document.getElementById('kimiChatLink').href =
-    `https://www.kimi.com/_prefill_chat?prefill_prompt=${encodeURIComponent(deepReadingPrompts.prefillPrompt)}` +
-    `&system_prompt=${encodeURIComponent(deepReadingPrompts.systemPrompt)}` +
-    `&send_immediately=true&force_search=true`;
+  // Kimi：URL 只用精简版（完整版 URL 过长会导致“意外终止连接”）
+  const kimiChatLink = document.getElementById('kimiChatLink');
+  kimiChatLink.href = buildKimiPrefillUrl(
+    deepReadingPrompts.kimiSystemShort,
+    deepReadingPrompts.kimiPrefillShort
+  );
+  kimiChatLink.onclick = async () => {
+    const ok = await copyTextToClipboard(deepReadingPrompts.combinedPrompt);
+    if (ok) {
+      showBriefToast('已打开 Kimi；完整深度阅读提示词也已复制，可按需粘贴补充');
+    }
+  };
 
   // 豆包无官方预填 URL：复制完整 prompt 并打开聊天页
   const doubaoChatLink = document.getElementById('doubaoChatLink');
