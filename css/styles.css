@@ -2326,3 +2326,34 @@ footer {
   display: flex;
   align-items: center;
 }
+
+.paper-modal-footer #kimiChatLink,
+.paper-modal-footer #doubaoChatLink {
+  width: 48px;
+}
+
+.ai-prompt-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%) translateY(12px);
+  max-width: min(90vw, 420px);
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.84);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+  z-index: 10000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
+}
+
+.ai-prompt-toast.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}

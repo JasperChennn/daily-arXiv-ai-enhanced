@@ -1232,6 +1232,119 @@ function renderPapers() {
   });
 }
 
+function buildDeepReadingPrompts(paperPdfUrl) {
+  const systemPrompt = `你是一位资深学术研究员、顶级论文审稿人与系统化知识整理者，擅长从研究问题、方法设计、理论机制、实验支撑、局限性与未来方向六个层面深度拆解论文。你的目标不是生成表面化摘要，而是帮助读者真正理解论文的核心逻辑、关键细节、实验依据、创新边界及可复用价值。
+
+阅读原则：
+1. 先全局，后细节：优先通过标题、摘要、引言、方法总览、实验设计、结论建立整体理解，再深入技术细节。
+2. 抓主线，不平均用力：优先抓住研究问题与动机、核心贡献、方法设计与关键公式、实验支撑与核心结论、局限性与研究边界；对低信息量背景适度压缩。
+3. 主动分析，不被动摘抄：识别真正要解决的问题、创新点、实验是否支撑结论、优势成立条件、潜在局限与未回答问题。
+4. 解释贴近原文：保留关键术语、模块名、变量、损失函数、公式与专业表述；必要时中英对照，避免模糊化。
+
+输出要求：不要出现第一人称；兼顾整体概览、关键细节、原文贴合度、批判性分析、可读性与可复用性。后续对话将围绕该论文继续答疑，保持同样专业标准。`;
+
+  const prefillPrompt = `请深度阅读这篇论文（PDF）：${paperPdfUrl}
+
+请输出一份高质量结构化阅读笔记，帮助我：
+1) 快速判断是否重要、是否值得精读；
+2) 准确理解问题定义、研究动机、方法设计与实验逻辑；
+3) 提炼可复用的方法思想、技术细节和结论；
+4) 识别局限性、适用边界与后续研究机会。
+
+请严格按以下结构输出：
+
+一、论文基本信息 (Bibliographic Information)
+- 标题 (Title)
+- 作者 (Authors)：作者、机构、可能的研究脉络
+- 发表期刊/会议 (Journal/Conference)：venue、领域与影响力；若能可靠检索可补充 CCF/SCI/CORE；若曾先发 arXiv，请联网核查是否已被正式接收；无法核实须写“未核实”，不得猜测
+- 发表年份 (Publication Year)
+- 论文类型 (Paper Type)：综述/方法/系统/理论/benchmark/数据集/应用等，并说明依据
+- 摘要提炼 (Abstract)：3-5 句概括目的、方法、核心结果与结论
+
+二、整体概括 (Overview)
+- 研究背景与动机 (Background & Motivation)：核心问题、重要性、现有不足、直接动机
+- 问题定义 (Problem Definition)：任务、输入/输出/约束、在更大图景中的位置
+- 核心贡献与主要发现 (Main Contribution / Findings)：明确创新、相对已有工作新在何处、最值得记忆的结论
+
+三、方法核心与技术细节 (Methods)
+须充分结合原文术语、模块名、符号、公式与机制：
+- 总体方法思路 (Overall Method Idea)
+- 关键模块与结构设计 (Key Modules & Architecture)：各模块输入/输出/功能与连接关系
+- 关键机制与创新点 (Key Mechanisms & Innovations)：相对 baseline 的新增设计及为何可能有效
+- 步骤与流程 (Steps & Procedures)：从输入到输出的完整流程
+- 公式与符号解释 (Formulas & Symbols)：写出关键公式、解释主要符号、机制与在方法中的作用
+- 方法理解补充 (Method Intuition)：直观说明为何合理、为何可能有效
+
+四、实验结果与分析 (Results & Analysis)
+不要只罗列数字，要把实验设计、数据、指标、对比与结果联系起来：
+- 实验设置 (Experimental Setup)
+- 主结果解读 (Main Results Interpretation)
+- 细粒度分析 (Fine-grained Analysis)：消融、参数、效率、鲁棒性、可视化等
+- 结果背后的原因 (Why the Results Happen)
+- 实验支撑力度评估 (Strength of Empirical Evidence)
+- 启发与思考 (Insights & Implications)
+
+五、图表与可视化信息解读 (Figures / Tables Interpretation)
+首次引用任一 Figure/Table 时，用 1-3 句说明其展示对象、关键关系/趋势/机制、以及对理解论文的重要性；优先解释信息价值，不复刻图表。
+
+六、局限性与研究边界 (Limitations & Boundaries)
+- 局限性、潜在风险或偏差、研究边界（真正证明了什么 / 尚未充分证明什么）
+
+七、可延展点与未来方向 (Future Directions)
+可拓展方向、值得深入的模块/假设/场景，以及方法思想向其他任务迁移的可能。
+
+八、核心总结 (Conclusion)
+用一段完整、凝练、可记忆的话总结：问题、重要性、关键方法、关键结果、价值、边界与可借鉴之处。`;
+
+  return {
+    systemPrompt,
+    prefillPrompt,
+    combinedPrompt: `${systemPrompt}\n\n---\n\n${prefillPrompt}`
+  };
+}
+
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (e) {
+    // fall through to legacy path
+  }
+
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+function showBriefToast(message) {
+  let toast = document.getElementById('aiPromptToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'aiPromptToast';
+    toast.className = 'ai-prompt-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.add('visible');
+  clearTimeout(showBriefToast._timer);
+  showBriefToast._timer = setTimeout(() => {
+    toast.classList.remove('visible');
+  }, 2500);
+}
+
 function showPaperDetails(paper, paperIndex) {
   const modal = document.getElementById('paperModal');
   const modalTitle = document.getElementById('modalTitle');
@@ -1358,10 +1471,27 @@ function showPaperDetails(paper, paperIndex) {
   }
   // ---------------------------
 
-  // 提示词来自：https://papers.cool/
-  prompt = `请你阅读这篇文章${paper.url.replace('abs', 'pdf')},总结一下这篇文章解决的问题、相关工作、研究方法、做了什么实验及其结果、结论，最后整体总结一下这篇文章的内容`
-  document.getElementById('kimiChatLink').href = `https://www.kimi.com/_prefill_chat?prefill_prompt=${prompt}&system_prompt=你是一个学术助手，后面的对话将围绕着以下论文内容进行，已经通过链接给出了论文的PDF和论文已有的FAQ。用户将继续向你咨询论文的相关问题，请你作出专业的回答，不要出现第一人称，当涉及到分点回答时，鼓励你以markdown格式输出。&send_immediately=true&force_search=true`;
-  
+  // 深度阅读提示词（Kimi / 豆包共用）
+  const paperPdfUrl = paper.url.replace('abs', 'pdf');
+  const deepReadingPrompts = buildDeepReadingPrompts(paperPdfUrl);
+
+  document.getElementById('kimiChatLink').href =
+    `https://www.kimi.com/_prefill_chat?prefill_prompt=${encodeURIComponent(deepReadingPrompts.prefillPrompt)}` +
+    `&system_prompt=${encodeURIComponent(deepReadingPrompts.systemPrompt)}` +
+    `&send_immediately=true&force_search=true`;
+
+  // 豆包无官方预填 URL：复制完整 prompt 并打开聊天页
+  const doubaoChatLink = document.getElementById('doubaoChatLink');
+  doubaoChatLink.href = 'https://www.doubao.com/chat';
+  doubaoChatLink.onclick = async (event) => {
+    event.preventDefault();
+    const ok = await copyTextToClipboard(deepReadingPrompts.combinedPrompt);
+    window.open('https://www.doubao.com/chat', '_blank', 'noopener,noreferrer');
+    showBriefToast(ok
+      ? '深度阅读提示词已复制，请在豆包中粘贴发送'
+      : '已打开豆包；提示词复制失败，请手动复制');
+  };
+ 
   // 更新论文位置信息
   const paperPosition = document.getElementById('paperPosition');
   if (paperPosition && currentFilteredPapers.length > 0) {
