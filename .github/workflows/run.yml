@@ -16,6 +16,25 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Normalize LANGUAGE variable
+      id: lang
+      run: |
+        raw="${{ vars.LANGUAGE }}"
+        raw_trim="$(echo "$raw" | xargs)"
+        case "$raw_trim" in
+          中文|chinese|Chinese|"")
+            normalized="Chinese"
+            ;;
+          英文|english|English)
+            normalized="English"
+            ;;
+          *)
+            normalized="$raw_trim"
+            ;;
+        esac
+        echo "Raw LANGUAGE='$raw_trim' -> normalized='$normalized'"
+        echo "language=$normalized" >> $GITHUB_OUTPUT
+
     - name: Install dependencies
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -41,7 +60,7 @@ jobs:
         export OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
         export OPENAI_BASE_URL=${{ secrets.OPENAI_BASE_URL }}
         export TOKEN_GITHUB=${{ secrets.TOKEN_GITHUB }}
-        export LANGUAGE="${{ vars.LANGUAGE }}"
+        export LANGUAGE="${{ steps.lang.outputs.language }}"
         export CATEGORIES="${{ vars.CATEGORIES }}"
         export MODEL_NAME="${{ vars.MODEL_NAME }}"
         
@@ -107,7 +126,7 @@ jobs:
         cd ai
         export OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
         export OPENAI_BASE_URL=${{ secrets.OPENAI_BASE_URL }}
-        export LANGUAGE="${{ vars.LANGUAGE }}"
+        export LANGUAGE="${{ steps.lang.outputs.language }}"
         export MODEL_NAME="${{ vars.MODEL_NAME }}"
         
         python enhance.py --data ../data/${today}.jsonl
@@ -127,7 +146,7 @@ jobs:
         echo "转换为Markdown格式... / Converting to Markdown format..."
         
         # 设置环境变量 / Set environment variables
-        export LANGUAGE="${{ vars.LANGUAGE }}"
+        export LANGUAGE="${{ steps.lang.outputs.language }}"
         
         cd to_md
         
@@ -226,9 +245,13 @@ jobs:
         
         # 注入仓库信息到 data-config.js / Inject repository info into data-config.js
         if [ -f "js/data-config.js" ]; then
+          # Replace placeholders or any existing owner/name values
           sed -i "s/PLACEHOLDER_REPO_OWNER/$REPO_OWNER/g" js/data-config.js
           sed -i "s/PLACEHOLDER_REPO_NAME/$REPO_NAME/g" js/data-config.js
+          sed -i "s/repoOwner: '[^']*'/repoOwner: '$REPO_OWNER'/" js/data-config.js
+          sed -i "s/repoName: '[^']*'/repoName: '$REPO_NAME'/" js/data-config.js
           echo "✅ 仓库信息已注入到 js/data-config.js / Repository info injected into js/data-config.js"
+          grep -E "repoOwner|repoName" js/data-config.js
         else
           echo "❌ ERROR: js/data-config.js not found!"
           exit 1

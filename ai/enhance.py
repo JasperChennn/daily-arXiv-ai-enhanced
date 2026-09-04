@@ -210,10 +210,23 @@ def process_all_items(data: List[Dict], model_name: str, language: str, max_work
     
     return processed_data
 
+def normalize_language(language: str) -> str:
+    """Map common LANGUAGE values to filename-safe English tags used by the frontend."""
+    mapping = {
+        "中文": "Chinese",
+        "chinese": "Chinese",
+        "Chinese": "Chinese",
+        "英文": "English",
+        "english": "English",
+        "English": "English",
+    }
+    return mapping.get((language or "").strip(), (language or "Chinese").strip() or "Chinese")
+
+
 def main():
     args = parse_args()
     model_name = os.environ.get("MODEL_NAME", 'deepseek-chat')
-    language = os.environ.get("LANGUAGE", 'Chinese')
+    language = normalize_language(os.environ.get("LANGUAGE", 'Chinese'))
 
     # 检查并删除目标文件
     target_file = args.data.replace('.jsonl', f'_AI_enhanced_{language}.jsonl')

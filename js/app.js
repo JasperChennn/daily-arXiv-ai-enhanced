@@ -509,24 +509,36 @@ function getPreferredLanguage() {
   return 'Chinese';
 }
 
+function languageAliases(lang) {
+  if (lang === 'Chinese' || lang === '中文') {
+    return ['Chinese', '中文'];
+  }
+  if (lang === 'English' || lang === '英文') {
+    return ['English', '英文'];
+  }
+  return [lang];
+}
+
+function pickAvailableLanguage(availableLanguages, preferredLanguage) {
+  if (!availableLanguages || availableLanguages.length === 0) {
+    return preferredLanguage || 'Chinese';
+  }
+
+  const preferredAliases = languageAliases(preferredLanguage || 'Chinese');
+  const exact = availableLanguages.find(lang => preferredAliases.includes(lang));
+  if (exact) {
+    return exact; // keep the actual filename tag (Chinese or 中文)
+  }
+
+  const chinese = availableLanguages.find(lang => languageAliases(lang).includes('Chinese'));
+  return chinese || availableLanguages[0];
+}
+
 // Function to select the best available language for a date
 function selectLanguageForDate(date, preferredLanguage = null) {
   const availableLanguages = window.dateLanguageMap?.get(date) || [];
-  
-  if (availableLanguages.length === 0) {
-    return 'Chinese'; // fallback
-  }
-  
-  // Use provided preference or detect from browser
   const preferred = preferredLanguage || getPreferredLanguage();
-  
-  // If preferred language is available, use it
-  if (availableLanguages.includes(preferred)) {
-    return preferred;
-  }
-  
-  // Fallback: prefer Chinese if available, otherwise use the first available
-  return availableLanguages.includes('Chinese') ? 'Chinese' : availableLanguages[0];
+  return pickAvailableLanguage(availableLanguages, preferred);
 }
 
 async function fetchAvailableDates() {
@@ -541,7 +553,7 @@ async function fetchAvailableDates() {
     const text = await response.text();
     const files = text.trim().split('\n');
 
-    const dateRegex = /(\d{4}-\d{2}-\d{2})_AI_enhanced_(English|Chinese)\.jsonl/;
+    const dateRegex = /(\d{4}-\d{2}-\d{2})_AI_enhanced_(English|Chinese|中文|英文)\.jsonl/;
     const dateLanguageMap = new Map(); // Store date -> available languages
     const dates = [];
     
